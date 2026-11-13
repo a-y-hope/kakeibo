@@ -109,6 +109,8 @@ h3.sec{margin:6px 2px 0;font-size:13px;font-weight:900;color:var(--muted);letter
 .empty{padding:22px 16px;text-align:center;color:var(--muted);font-size:14px}
 
 /* month */
+.rangebox{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.mjump{margin-top:0}
 .mnav{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center}
 .mnav .label{text-align:center;font-weight:900;font-size:16px}
 .hero{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:12px}
@@ -1266,7 +1268,7 @@ var unsubEntries = null, rangeKey = "", slowTimer = null;
 var sheetState = null, popId = null, armed = null, armTimer = null, lastUndo = null, toastTimer = null;
 var saving = Promise.resolve();
 var lastRows = [];
-var settingsObj = function(){return {cats:cats,v:3}};
+var settingsObj = function(){return {cats:cats,closeDay:(typeof closeDay==="number"?closeDay:0),v:3}};
 var LS_KEY = "kurecha:v1";
 function lsSave(){try{localStorage.setItem(LS_KEY,JSON.stringify({entries:entries,settings:settingsObj()}))}catch(e){}}
 function lsLoad(){
@@ -1275,6 +1277,7 @@ function lsLoad(){
     var o=JSON.parse(r);
     if(Array.isArray(o.entries)) entries=o.entries;
     if(o.settings&&Array.isArray(o.settings.cats)) cats=o.settings.cats;
+    if(o.settings&&typeof o.settings.closeDay==="number") closeDay=o.settings.closeDay;
   }catch(e){}
 }
 
@@ -1304,6 +1307,7 @@ function ensureRange(){
     entries=snap.docs.map(function(d){var o=d.data();o.id=d.id;return o});
     loaded=true;slow=false;clearTimeout(slowTimer);
     render();
+    if(view.tab==="range") loadRange(true);
   },function(err){loaded=true;slow=false;showErr(err);render()});
 }
 function addEntry(e){
@@ -1340,9 +1344,9 @@ function toast(msg,undoId){
 /* ---------- render ---------- */
 function render(){
   ROOT.querySelectorAll("nav.tabs button").forEach(function(b){
-    if(b.dataset.tab===view.tab) b.setAttribute("aria-current","page"); else b.removeAttribute("aria-current");
+    if(b.dataset.tab===(view.tab==="range"?"month":view.tab)) b.setAttribute("aria-current","page"); else b.removeAttribute("aria-current");
   });
-  $("#main").innerHTML = view.tab==="add"?renderAdd():view.tab==="month"?renderMonth():renderSettings();
+  $("#main").innerHTML = view.tab==="add"?renderAdd():view.tab==="month"?renderMonth():view.tab==="range"?renderRange():renderSettings();
   popId=null;
 }
 function entryRow(e){
@@ -1393,6 +1397,7 @@ function renderMonth(){
   var total=sum(cur), ptotal=sum(prev);
   var tp=sumG(cur,"play"), tl=sumG(cur,"life");
   var h='<div class="mnav"><button class="arrow" data-act="month" data-d="-1" aria-label="前の月">‹</button><div class="label">'+p[0]+'年'+Number(p[1])+'月</div><button class="arrow" data-act="month" data-d="1" aria-label="次の月">›</button></div>';
+  h+='<button class="btn ghost" data-act="rangeopen">期間を決めて見る(締め日など) ›</button>';
   if(!loaded&&entriesRef) return h+'<div class="hero"><div class="sub">'+(slow?"読み込みに時間がかかっています。通信を確認してください":"読み込み中…")+'</div></div>';
   var delta=ptotal>0?"先月より "+(total-ptotal>=0?"+":"−")+yen(Math.abs(total-ptotal))+"(先月 "+yen(ptotal)+")":"先月の記録はありません";
   var pc=function(v){return total>0?Math.round(v/total*100)+"%":"0%"};
@@ -1511,6 +1516,7 @@ function amountSheet(c,p){
 function csvCell(v){var s=String(v==null?"":v);return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s}
 async function loadRows(){
   var rows;
+  if(view.tab==="range"){rows=sortEntries(rangeCur());if(!rows.length){toast("この期間の記録はありません");return null}return rows}
   try{
     rows=entriesRef?(await entriesRef.orderBy("date","desc").limit(1000).get()).docs.map(function(d){return d.data()}):entries;
   }catch(e){showErr(e);return null}
@@ -1555,7 +1561,7 @@ async function exportCsv(){
   try{dl=C&&C.use?await C.use("downloads"):null}catch(e){}
   if(!dl){if(!C){csvDownload(rows);return}tsvSheet(rows);return}
   var csv="﻿"+HEADS.join(",")+"\r\n"+rows.map(function(e){return rowCells(e).map(csvCell).join(",")}).join("\r\n");
-  try{await dl.save({filename:"kurecha_"+todayStr()+".csv",data:csv});toast("CSVを保存しました")}
+  try{await dl.save({filename:"kurecha_"+expTag()+".csv",data:csv});toast("CSVを保存しました")}
   catch(e){if(!e||e.code!=="declined")tsvSheet(rows)}
 }
 async function copyRows(){var rows=await loadRows();if(rows)tsvSheet(rows)}
@@ -1593,6 +1599,8 @@ ROOT.addEventListener("click",function(ev){
   else if(a==="grp"){view.grp=d.g;render()}
   else if(a==="day"){var x=parseDate(view.date);x.setDate(x.getDate()+Number(d.d));setDate(fmtDate(x))}
   else if(a==="today"){setDate(todayStr())}
+  else if(a==="rangeopen"){initRange();view.tab="range";view.filter=null;loadRange();render();window.scrollTo(0,0)}
+  else if(a==="rshift"){rangeShift(Number(d.d))}
   else if(a==="mjump"){setDate(addMonths(monthOf(view.date),Number(d.d))+"-01")}
   else if(a==="month"){view.month=addMonths(view.month,Number(d.d));view.filter=null;ensureRange();render()}
   else if(a==="filter"){view.filter=d.k&&view.filter!==d.k?d.k:null;render()}
@@ -1716,7 +1724,7 @@ function fileBase(){
 }
 function csvDownload(rows){
   var csv="﻿"+pdfHeads().join(",")+"\r\n"+rows.map(function(e){return rowCells(e).map(csvCell).join(",")}).join("\r\n");
-  saveBlob(new Blob([csv],{type:"text/csv;charset=utf-8"}),fileBase()+"_"+todayStr()+".csv");
+  saveBlob(new Blob([csv],{type:"text/csv;charset=utf-8"}),fileBase()+"_"+expTag()+".csv");
   toast("CSVのダウンロードを始めました。ダウンロードフォルダを確認してください");
 }
 function canvasJpeg(cv){
@@ -1738,7 +1746,7 @@ async function makePdf(rows){
   var used=0; cols.forEach(function(c,i){if(i<5)used+=c.w});
   cols[5].w=W-2*M-used;
   var title=APP_TITLE, now=new Date();
-  var stamp=now.getFullYear()+"年"+(now.getMonth()+1)+"月"+now.getDate()+"日 出力";
+  var stamp=(view.tab==="range"&&view.range?"期間 "+view.range.from+" 〜 "+view.range.to+" ・ ":"")+now.getFullYear()+"年"+(now.getMonth()+1)+"月"+now.getDate()+"日 出力";
   function font(px,wt){g.font=wt+" "+px+"px "+fam}
   function wrap(text,maxW,maxLines){
     text=String(text==null?"":text);
@@ -1853,7 +1861,7 @@ async function exportPdf(){
   toast("PDFを作成中…");
   var blob;
   try{blob=await makePdf(rows)}catch(e){toast("PDFを作成できませんでした");return}
-  var name=fileBase()+"_"+todayStr()+".pdf", dl=null;
+  var name=fileBase()+"_"+expTag()+".pdf", dl=null;
   try{dl=C&&C.use?await C.use("downloads"):null}catch(e){}
   if(dl){
     try{await dl.save({filename:name,data:blob});toast("PDFを保存しました")}
@@ -1863,6 +1871,116 @@ async function exportPdf(){
   if(!C){saveBlob(blob,name);toast("PDFのダウンロードを始めました。ダウンロードフォルダを確認してください");return}
   tsvSheet(rows);
 }
+
+/* ---------- custom period ---------- */
+var closeDay = 0, rangeEntries = [], rangeTok = 0, rangeBusy = false;
+function dim(ym){var p=ym.split("-").map(Number);return new Date(p[0],p[1],0).getDate()}
+function cycleOf(endYm){
+  var D=closeDay, pm=addMonths(endYm,-1);
+  var endDay=Math.min(D,dim(endYm)), pEnd=Math.min(D,dim(pm));
+  var from=pEnd>=dim(pm)?endYm+"-01":pm+"-"+pad(pEnd+1);
+  return {from:from,to:endYm+"-"+pad(endDay),cm:endYm};
+}
+function currentCycle(){
+  var t=todayStr(), ym=monthOf(t), dd=Number(t.slice(8));
+  return cycleOf(dd<=Math.min(closeDay,dim(ym))?ym:addMonths(ym,1));
+}
+function initRange(){
+  if(view.range) return;
+  if(closeDay>0) view.range=currentCycle();
+  else{var ym=view.month;view.range={from:ym+"-01",to:ym+"-"+pad(dim(ym)),cm:null}}
+}
+function inRange(e){var r=view.range;return !!r&&e.date>=r.from&&e.date<=r.to}
+function rangeCur(){return entriesRef?rangeEntries:entries.filter(inRange)}
+function loadRange(keep){
+  var r=view.range; if(!r||!entriesRef) return;
+  var tok=++rangeTok;
+  if(!keep){rangeEntries=[];rangeBusy=true}
+  entriesRef.where("date",">=",r.from).where("date","<=",r.to).orderBy("date","desc").limit(1000).get().then(function(snap){
+    if(tok!==rangeTok) return;
+    rangeEntries=snap.docs.map(function(d){var o=d.data();o.id=d.id;return o});rangeBusy=false;
+    if(view.tab==="range") render();
+  },function(err){if(tok!==rangeTok) return;rangeBusy=false;showErr(err);if(view.tab==="range") render()});
+}
+function rangeShift(dir){
+  var r=view.range;
+  if(closeDay>0&&r.cm){view.range=cycleOf(addMonths(r.cm,dir))}
+  else{
+    var a=parseDate(r.from), b=parseDate(r.to), n=Math.round((b-a)/86400000)+1;
+    a.setDate(a.getDate()+dir*n); b.setDate(b.getDate()+dir*n);
+    view.range={from:fmtDate(a),to:fmtDate(b),cm:null};
+  }
+  view.filter=null; loadRange(); render();
+}
+function renderRange(){
+  initRange();
+  var r=view.range, cur=rangeCur();
+  var total=sum(cur), tp=sumG(cur,"play"), tl=sumG(cur,"life");
+  var fj=function(s){var d=parseDate(s);return d.getFullYear()+"年"+(d.getMonth()+1)+"月"+d.getDate()+"日"};
+  var days=Math.round((parseDate(r.to)-parseDate(r.from))/86400000)+1;
+  var h='<button class="btn ghost" data-act="tab" data-tab="month">‹ 月ごとに戻る</button>';
+  var opts='<option value="0">設定しない</option>';
+  for(var i=1;i<=31;i++) opts+='<option value="'+i+'"'+(closeDay===i?" selected":"")+'>毎月'+(i===31?"末日":i+"日")+'締め</option>';
+  h+='<div class="catcard"><div class="rangebox"><label class="hint" style="font-weight:700">はじまりの日<input class="field" type="date" data-f="rfrom" value="'+esc(r.from)+'"></label>'+
+    '<label class="hint" style="font-weight:700">おわりの日<input class="field" type="date" data-f="rto" value="'+esc(r.to)+'"></label></div>'+
+    '<label class="hint" style="font-weight:700;display:block;margin-top:8px">カードの締め日(決めると「前の期間・次の期間」が締め日ごとに動きます)<select class="field" data-f="closeday">'+opts+'</select></label></div>';
+  h+='<div class="mjump"><button data-act="rshift" data-d="-1">‹ 前の期間</button><button data-act="rshift" data-d="1">次の期間 ›</button></div>';
+  if(entriesRef&&rangeBusy) return h+'<div class="hero"><div class="sub">読み込み中…</div></div>';
+  var pc=function(v){return total>0?Math.round(v/total*100)+"%":"0%"};
+  h+='<div class="hero"><div><div class="sub">'+fj(r.from)+' 〜 '+fj(r.to)+'('+days+'日間)</div><div class="big num">'+yen(total)+'</div></div><div class="sub">'+cur.length+'件'+(entriesRef&&cur.length>=1000?' ・ 1000件まで表示しています':'')+'</div>'+
+    '<div class="split"><div style="--cc:var(--c0)"><small>自由費</small><b class="num">'+yen(tp)+'</b><span class="num">'+pc(tp)+'</span></div>'+
+    '<div style="--cc:var(--c3)"><small>生活費</small><b class="num">'+yen(tl)+'</b><span class="num">'+pc(tl)+'</span></div></div>';
+  if(total>0) h+='<div class="stack" aria-hidden="true">'+(tp>0?'<i style="flex:'+tp+';background:var(--c0)"></i>':"")+(tl>0?'<i style="flex:'+tl+';background:var(--c3)"></i>':"")+'</div>';
+  h+='</div>';
+  if(!cur.length) return h+'<div class="list"><div class="empty">この期間の記録はありません。</div></div>';
+  var groups={};
+  cur.forEach(function(e){var k=e.catId||("x:"+(e.cat||""));var gg=groups[k]||(groups[k]={key:k,name:catLabel(e),color:catColor(e),grp:entGrp(e),amount:0,count:0});gg.amount+=e.amount||0;gg.count++});
+  h+='<h3 class="sec">分類ごと(タップで絞り込み)</h3><div class="list">';
+  GROUPS.forEach(function(G){
+    var rows=Object.keys(groups).map(function(k){return groups[k]}).filter(function(x){return x.grp===G.id}).sort(function(a,b){return b.amount-a.amount});
+    if(!rows.length) return;
+    var gt=G.id==="play"?tp:tl;
+    h+='<div class="ghead"><span>'+G.name+'</span><span class="num">'+yen(gt)+'</span></div>';
+    rows.forEach(function(x){
+      var pct=gt>0?Math.round(x.amount/gt*100):0;
+      h+='<button class="crow'+(view.filter===x.key?" sel":"")+'" style="--cc:var(--c'+x.color+')" data-act="filter" data-k="'+esc(x.key)+'"><span class="dot"></span><span class="nm">'+esc(x.name)+'</span><span class="am num">'+yen(x.amount)+'</span>'+
+        '<span class="meter"><i style="width:'+pct+'%"></i></span><span class="meta num"><span>'+G.name+'の'+pct+'%</span><span>'+x.count+'件</span></span></button>';
+    });
+  });
+  h+='</div>';
+  var list=sortEntries(cur);
+  if(view.filter){
+    list=list.filter(function(e){return (e.catId||("x:"+(e.cat||"")))===view.filter});
+    var g2=groups[view.filter];
+    h+='<div class="filterbar"><span>絞り込み中:'+esc(g2?g2.name:"")+'</span><button data-act="filter" data-k="">解除</button></div>';
+  }
+  h+='<h3 class="sec">明細</h3><div class="list">';
+  var last="";
+  list.forEach(function(e){
+    if(e.date!==last){
+      last=e.date;
+      var dd=parseDate(e.date);
+      h+='<div class="dayhead"><span>'+(dd.getMonth()+1)+'月'+dd.getDate()+'日('+WD[dd.getDay()]+')</span><span class="num">'+yen(sum(list.filter(function(x){return x.date===e.date})))+'</span></div>';
+    }
+    h+=entryRow(e);
+  });
+  h+='</div><div class="rowbtns" style="margin-top:12px"><button class="btn ghost" data-act="csv">この期間をCSVで保存</button><button class="btn ghost" data-act="pdf">PDFで保存</button><button class="btn ghost" data-act="tsv">表をコピー</button></div>';
+  return h;
+}
+function expTag(){return view.tab==="range"&&view.range?view.range.from+"_"+view.range.to:todayStr()}
+ROOT.addEventListener("change",function(ev){
+  var t=ev.target, f=t.dataset&&t.dataset.f;
+  if(f==="rfrom"||f==="rto"){
+    var r=view.range; if(!r||!t.value) return;
+    if(f==="rfrom") r.from=t.value; else r.to=t.value;
+    if(r.from>r.to){if(f==="rfrom") r.to=r.from; else r.from=r.to}
+    r.cm=null; view.filter=null; loadRange(); render();
+  }else if(f==="closeday"){
+    closeDay=Number(t.value)||0; saveSettings();
+    if(closeDay>0) view.range=currentCycle(); else if(view.range) view.range.cm=null;
+    view.filter=null; loadRange(); render();
+  }
+});
 
 /* ---------- import (CSV / pasted table) ---------- */
 var IMP={rows:null,res:null};
@@ -2063,6 +2181,7 @@ render();
     if(snap.exists){
       var dd=snap.data();
       if(!dd||!Array.isArray(dd.cats)) return;
+      if(typeof dd.closeDay==="number"&&dd.closeDay!==closeDay){closeDay=dd.closeDay;render()}
       if(JSON.stringify(dd.cats)!==JSON.stringify(cats)){cats=dd.cats;render()}
     }
   },function(){});
