@@ -4,7 +4,10 @@
 <meta name="color-scheme" content="light dark">
 <style>html{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-size:14px;font-family:-apple-system,"Hiragino Sans","Yu Gothic",sans-serif}[hidden]{display:none!important}</style>
 <title>あそび帳セット</title>
-<link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet">
+<link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#F27C5B">
@@ -192,6 +195,7 @@ div.row{cursor:default}
 .brand h1,.stub b,.tmain .tot,.hero .big,.split b,.yen span,.yen .field,.bal .big{font-weight:900;letter-spacing:.02em;-webkit-text-stroke:.5px currentColor}
 .brand h1{-webkit-text-stroke:.6px currentColor}
 .chip,.seg button,.btn,.mini,nav.tabs button,.crow .nm,.row .t b{font-weight:900}
+html.wf .brand h1,html.wf .stub b,html.wf .tmain .tot,html.wf .hero .big,html.wf .split b,html.wf .yen span,html.wf .yen .field,html.wf .bal .big{font-weight:400;-webkit-text-stroke:0;letter-spacing:normal}
 </style>
 </head><body>
 <section id="app-play" class="app">
@@ -2385,4 +2389,6 @@ document.addEventListener("sumshow",function(){load()});
 if(!ROOT.hidden) load();
 })();
 </script>
+<script>(function(){function chk(){var ok=false;try{document.fonts.forEach(function(f){if(/Dela Gothic/.test(f.family)&&f.status==="loaded")ok=true})}catch(e){}if(ok)document.documentElement.classList.add("wf")}
+try{if(document.fonts){document.fonts.ready.then(chk);if(document.fonts.addEventListener)document.fonts.addEventListener("loadingdone",chk)}}catch(e){}})();</script>
 </body></html>
