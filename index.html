@@ -1,17 +1,24 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<style>html{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-size:14px;font-family:-apple-system,"Hiragino Sans","Yu Gothic",sans-serif}[hidden]{display:none!important}</style>
 <title>あそび帳セット</title>
-<meta name="claude:viewport-fit-sides" content="cover">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#F27C5B">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="あそび帳">
 <style>
 /* Layout: same phone-first ledger as あそび帳2. Two groups (自由費 / 生活費) share one system; a segment switch picks which group's tap chips show, and the month view splits the total by group. */
 :root{
   --bg:#EDF0F7; --surface:#FFFFFF; --surface2:#F4F6FB; --ink:#1A2038; --muted:#656C8A; --line:#DADFEC;
   --btn:#1A2038; --btn-ink:#FFFFFF; --danger:#C92B45; --focus:#4560E0;
   --c0:#E8512E; --c1:#C98A00; --c2:#1F9A56; --c3:#0C8FB3; --c4:#4560E0; --c5:#8B4FD6; --c6:#D93680; --c7:#6B7589; --c8:#8A6238;
-  --font:"Zen Maru Gothic","Hiragino Maru Gothic ProN","Hiragino Sans","Yu Gothic",sans-serif;
-  --display:"Dela Gothic One","Zen Maru Gothic","Hiragino Sans",sans-serif;
+  --font:"Zen Maru Gothic","M PLUS Rounded 1c","Kosugi Maru","Hiragino Maru Gothic ProN","Noto Sans CJK JP","Noto Sans JP","Hiragino Sans","Yu Gothic",sans-serif;
+  --display:"Dela Gothic One","Noto Sans CJK JP Black","Noto Sans JP","Hiragino Sans","Yu Gothic UI","Yu Gothic",sans-serif;
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
@@ -182,8 +189,11 @@ nav.tabs button[aria-current="page"]{color:var(--ink);background:var(--surface2)
 .modes button[aria-pressed="true"]{background:var(--btn);color:var(--btn-ink)}
 div.crow{cursor:default}
 div.row{cursor:default}
+.brand h1,.stub b,.tmain .tot,.hero .big,.split b,.yen span,.yen .field,.bal .big{font-weight:900;letter-spacing:.02em;-webkit-text-stroke:.5px currentColor}
+.brand h1{-webkit-text-stroke:.6px currentColor}
+.chip,.seg button,.btn,.mini,nav.tabs button,.crow .nm,.row .t b{font-weight:900}
 </style>
-
+</head><body>
 <section id="app-play" class="app">
 <div class="wrap">
   <div class="brand"><h1>あそび帳</h1></div>
@@ -1164,7 +1174,8 @@ render();
   if(!db||!uid){
     local=true;loaded=true;balLoaded=true;
     lsLoad();
-    var b=$("#banner");b.textContent="サインインしていないため、記録はこの端末のブラウザにだけ保存されます。別の端末には引き継がれず、ブラウザのデータを消すと失われます。設定タブのCSV保存でバックアップできます。";b.hidden=false;
+    var lsOk=true;try{localStorage.setItem("asobicho:test","1");localStorage.removeItem("asobicho:test")}catch(e){lsOk=false}
+    var b=$("#banner");b.textContent="オフライン版です。記録はこの端末のブラウザにだけ保存され、通信なしで使えます。別の端末には引き継がれず、ブラウザのデータを消すと失われます。大事な記録は、設定タブの「表をコピー」で控えておいてください。";if(!lsOk)b.textContent="このブラウザでは記録を保存できません。ページを閉じると記録が消えます。別のブラウザ(ChromeやSafari)で開いてください。";b.hidden=false;
     render();return;
   }
   profileRef=db.doc("data/users/"+uid+"/profile");
@@ -2038,7 +2049,8 @@ render();
   if(!db||!uid){
     local=true;loaded=true;
     lsLoad();
-    var b=$("#banner");b.textContent="サインインしていないため、記録はこの端末のブラウザにだけ保存されます。別の端末には引き継がれず、ブラウザのデータを消すと失われます。設定タブのCSV保存でバックアップできます。";b.hidden=false;
+    var lsOk=true;try{localStorage.setItem("asobicho:test","1");localStorage.removeItem("asobicho:test")}catch(e){lsOk=false}
+    var b=$("#banner");b.textContent="オフライン版です。記録はこの端末のブラウザにだけ保存され、通信なしで使えます。別の端末には引き継がれず、ブラウザのデータを消すと失われます。大事な記録は、設定タブの「表をコピー」で控えておいてください。";if(!lsOk)b.textContent="このブラウザでは記録を保存できません。ページを閉じると記録が消えます。別のブラウザ(ChromeやSafari)で開いてください。";b.hidden=false;
     render();return;
   }
   profileRef=db.doc("data/users/"+uid+"/cardbook");
@@ -2373,5 +2385,4 @@ document.addEventListener("sumshow",function(){load()});
 if(!ROOT.hidden) load();
 })();
 </script>
-
 </body></html>
